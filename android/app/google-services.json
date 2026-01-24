@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "205959038258",
+    "project_id": "teftef-auth",
+    "storage_bucket": "teftef-auth.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:205959038258:android:e45de9c1a01597b39c032b",
+        "android_client_info": {
+          "package_name": "com.example.teftef"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "205959038258-l5jl8r1o215cv8kfahatntr203gka53d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.teftef",
+            "certificate_hash": "677bcdca0693074aaeced6d92fbabd77dc649c64"
+          }
+        },
+        {
+          "client_id": "205959038258-b55fs6ptjl19eh64vffm1nnjshkctri5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDw09LmdBawWm2Z3yjIHI2SVF6f191yLqs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "205959038258-b55fs6ptjl19eh64vffm1nnjshkctri5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "205959038258-0v9utviufk7l6cejihum3m0q7gtcsce5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.teftef"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

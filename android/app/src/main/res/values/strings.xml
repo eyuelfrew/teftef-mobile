@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">teftef</string>
+    <string name="facebook_app_id">1667708111016648</string>
+    <string name="facebook_client_token">77f20eda0ea548d93ccf625e4599b143</string>
+    <string name="fb_login_protocol_scheme">fb1667708111016648</string>
+</resources>

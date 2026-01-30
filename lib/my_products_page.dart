@@ -210,7 +210,7 @@ class _MyProductsPageState extends State<MyProductsPage> {
                             icon: const Icon(Icons.edit_note, color: Colors.blue),
                           ),
                           IconButton(
-                            onPressed: () {}, // TODO: Delete
+                            onPressed: () {}, 
                             icon: const Icon(Icons.delete_outline, color: Colors.red),
                           ),
                         ],

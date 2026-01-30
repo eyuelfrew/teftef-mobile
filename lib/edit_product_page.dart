@@ -1,4 +1,5 @@
-import 'dart:convert';
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -28,7 +29,7 @@ class _EditProductPageState extends State<EditProductPage> {
   final TextEditingController _descriptionController = TextEditingController();
 
   List<String> _existingImages = []; // URLs
-  List<String> _newImages = []; // Local paths
+  final List<String> _newImages = []; // Local paths
   List<String> _keepImages = []; // URLs to retain
 
   @override

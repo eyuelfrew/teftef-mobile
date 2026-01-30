@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:teftef/core/config.dart';
@@ -346,12 +345,6 @@ class BackendAuthService {
     await _storage.delete(key: _userDataKey);
   }
 
-  /// Update last login timestamp
-  Future<void> _updateLastLogin(String firebaseUid) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_login_firebase_uid', firebaseUid);
-    await prefs.setInt('last_login_time', DateTime.now().millisecondsSinceEpoch);
-  }
 
   /// Get stored user data as map
   Map<String, dynamic>? getStoredUser() {

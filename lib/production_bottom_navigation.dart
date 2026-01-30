@@ -2,6 +2,7 @@ import 'package:animated_notch_bottom_bar/animated_notch_bottom_bar/animated_not
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'home_page.dart';
+import 'profile_page.dart';
 import 'search_page.dart';
 import 'category_selection_screen.dart';
 import 'auth/auth_controller.dart';
@@ -49,8 +50,9 @@ class _ProductionBottomNavigationState extends State<ProductionBottomNavigation>
     final List<Widget> bottomBarPages = [
       const HomePage(), // Home
       const SearchPage(), // Search
-      const CategorySelectionScreen(), // Post Product (Starts with Category Selection)
+      const CategorySelectionScreen(), // Post Product
       Container(), // Chat
+      const ProfilePage(), // Profile
     ];
 
     return Scaffold(
@@ -171,9 +173,6 @@ class _ProductionBottomNavigationState extends State<ProductionBottomNavigation>
                   }
                   // If logged in, navigate to chat page
                   _pageController.jumpToPage(index);
-                } else if (index == 4) { // Profile page index
-                  // Navigate to profile page which will handle login requirement
-                  Navigator.pushNamed(context, '/profile');
                 } else {
                   _pageController.jumpToPage(index);
                 }

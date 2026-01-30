@@ -572,8 +572,15 @@ class ApiService {
 
       log('Delete product response: ${response.statusCode}');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        Map<String, dynamic> data = {};
+        if (response.body.isNotEmpty) {
+          try {
+            data = json.decode(response.body);
+          } catch (e) {
+            log('Error decoding delete response: $e');
+          }
+        }
         return {
           'success': true,
           'message': data['message'] ?? 'Product deleted successfully',

@@ -38,25 +38,27 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB), // Light grey background
+      backgroundColor: const Color(0xFFF8F9FB),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color.fromARGB(255, 50, 50, 50),
         elevation: 0,
+        centerTitle: false,
+        automaticallyImplyLeading: false,
         title: const Text(
           "My Profile",
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 18,
           ),
         ),
         actions: [
-          if (authState.user != null) // Only show logout if user is logged in
+          if (authState.user != null)
             IconButton(
               onPressed: () {
                 authController.signOut();
               },
-              icon: const Icon(Icons.logout, color: Colors.black),
+              icon: const Icon(Icons.logout, color: Colors.white, size: 20),
             ),
         ],
       ),
@@ -65,20 +67,35 @@ class _ProfilePageState extends State<ProfilePage> {
           : authState.user == null
               ? _buildGuestContent()
               : SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 20),
-                      // Phone Verification Warning
-                      if (authState.backendUser != null && 
-                          authState.backendUser!['is_phone_verified'] == false)
-                        _buildVerificationWarning(),
-                      
-                      // User Header
-                      _buildUserHeader(authState.backendUser ?? authState.user),
-                      const SizedBox(height: 32),
-                      // Menu Items
+                      // User Header with Dark Background
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                        decoration: const BoxDecoration(
+                          color: Color.fromARGB(255, 50, 50, 50),
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(32),
+                            bottomRight: Radius.circular(32),
+                          ),
+                        ),
+                        child: _buildUserHeader(authState.backendUser ?? authState.user),
+                      ),
+
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Phone Verification Warning
+                            if (authState.backendUser != null && 
+                                authState.backendUser!['is_phone_verified'] == false)
+                              _buildVerificationWarning(),
+                            
+                            const SizedBox(height: 8),
+                            // Menu Items
                       _buildMenuItem(
                         icon: Icons.inventory_2_outlined,
                         iconColor: Colors.orange,
@@ -148,11 +165,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         iconColor: Colors.teal,
                         label: "Terms & Conditions",
                       ),
-                      const SizedBox(height: 100), // Space for bottom navigation
-                    ],
-                  ),
+                          const SizedBox(height: 100), // Space for bottom navigation
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-    );
+    ));
   }
 
   Widget _buildVerificationWarning() {
@@ -338,13 +357,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
               Text(
                 email ?? "No email",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey,
+                  color: Colors.white.withOpacity(0.7),
                 ),
               ),
               if (phoneNumber != null && phoneNumber.isNotEmpty)

@@ -210,7 +210,7 @@ class _MyProductsPageState extends State<MyProductsPage> {
                             icon: const Icon(Icons.edit_note, color: Colors.blue),
                           ),
                           IconButton(
-                            onPressed: () {}, 
+                            onPressed: () => _showDeleteConfirmation(product),
                             icon: const Icon(Icons.delete_outline, color: Colors.red),
                           ),
                         ],
@@ -224,6 +224,62 @@ class _MyProductsPageState extends State<MyProductsPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _showDeleteConfirmation(dynamic product) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Product'),
+        content: Text('Are you sure you want to delete "${product['name']}"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('DELETE', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      _deleteProduct(product['id']);
+    }
+  }
+
+  Future<void> _deleteProduct(int productId) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final res = await ApiService.deleteProduct(productId);
+      
+      // Close loading indicator
+      Navigator.pop(context);
+
+      if (res['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product deleted successfully')),
+        );
+        _loadInitialProducts(); // Refresh list
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Failed to delete product')),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context); // Close loading if still open
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   Widget _buildStatusBadge(String status) {

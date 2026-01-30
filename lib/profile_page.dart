@@ -4,6 +4,8 @@ import '../auth/auth_controller.dart';
 import 'components/login_bottom_sheet.dart';
 import 'my_products_page.dart';
 
+import 'auth/phone_verification_page.dart';
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -13,6 +15,15 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   bool _isDarkTheme = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Refresh profile from backend when visiting the page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AuthController>(context, listen: false).refreshProfile();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,8 +70,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 20),
+                      // Phone Verification Warning
+                      if (authState.backendUser != null && 
+                          authState.backendUser!['is_phone_verified'] == false)
+                        _buildVerificationWarning(),
+                      
                       // User Header
-                      _buildUserHeader(authState.user!),
+                      _buildUserHeader(authState.backendUser ?? authState.user),
                       const SizedBox(height: 32),
                       // Menu Items
                       _buildMenuItem(
@@ -139,6 +155,58 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildVerificationWarning() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  "Your phone number is not verified",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PhoneVerificationPage()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text("Verify Now"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGuestContent() {
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -196,6 +264,24 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ignore: strict_top_level_inference
   Widget _buildUserHeader(user) {
+    String? photoUrl;
+    String? displayName;
+    String? email;
+    bool isVerified = false;
+
+    if (user is Map) {
+      photoUrl = user['profile_pic'] ?? user['photoURL'];
+      displayName = user['first_name'] != null 
+          ? "${user['first_name']} ${user['last_name'] ?? ''}" 
+          : user['displayName'];
+      email = user['email'];
+      isVerified = user['is_phone_verified'] ?? false;
+    } else {
+      photoUrl = user.photoURL;
+      displayName = user.displayName;
+      email = user.email;
+    }
+
     return Row(
       children: [
         Stack(
@@ -205,13 +291,16 @@ class _ProfilePageState extends State<ProfilePage> {
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.teal, width: 2),
+                border: Border.all(
+                  color: isVerified ? Colors.teal : Colors.grey.shade300, 
+                  width: 2
+                ),
                 color: Colors.white,
               ),
-              child: user.photoURL != null
+              child: photoUrl != null
                   ? ClipOval(
                       child: Image.network(
-                        user.photoURL!,
+                        photoUrl,
                         width: 80,
                         height: 80,
                         fit: BoxFit.cover,
@@ -228,7 +317,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
-                  color: Color(0xFF1B4D3E), // Dark green from ref
+                  color: Color(0xFF1B4D3E),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.edit, size: 14, color: Colors.white),
@@ -242,36 +331,52 @@ class _ProfilePageState extends State<ProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                user.displayName ?? "User",
+                displayName ?? "User",
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
-                user.email ?? "No email",
+                email ?? "No email",
                 style: const TextStyle(
                   fontSize: 14,
                   color: Colors.grey,
                 ),
               ),
               const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1B4D3E),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  minimumSize: const Size(0, 32),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              if (!isVerified)
+                ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1B4D3E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    minimumSize: const Size(0, 32),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
+                  child: const Text(
+                    "Get Verification Badge",
+                    style: TextStyle(fontSize: 12),
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    const Icon(Icons.verified, color: Colors.teal, size: 16),
+                    const SizedBox(width: 4),
+                    const Text(
+                      "Verified Profile",
+                      style: TextStyle(
+                        color: Colors.teal,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text(
-                  "Get Verification Badge",
-                  style: TextStyle(fontSize: 12),
-                ),
-              ),
             ],
           ),
         ),

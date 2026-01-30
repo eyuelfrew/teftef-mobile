@@ -44,13 +44,23 @@ class GoogleAuthService {
     await _backendAuthService.signOut();
   }
 
-  /// Get current user profile from Firebase
+  /// Get current user profile from Backend
   Future<Map<String, dynamic>?> getCurrentUserProfile() async {
-    return await _backendAuthService.getCurrentUserProfile();
+    return await _backendAuthService.fetchBackendProfile();
   }
 
   /// Check if user is logged in
   Future<bool> isLoggedIn() async {
     return await _backendAuthService.validateSession();
+  }
+
+  /// Send OTP
+  Future<Map<String, dynamic>> sendOtp(String phoneNumber) async {
+    return await _backendAuthService.sendOtp(phoneNumber);
+  }
+
+  /// Verify OTP
+  Future<Map<String, dynamic>> verifyOtp(String phoneNumber, String otp) async {
+    return await _backendAuthService.verifyOtp(phoneNumber, otp);
   }
 }

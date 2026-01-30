@@ -51,16 +51,25 @@ class BackendAuthService {
         throw Exception('Firebase authentication failed');
       }
 
-      // Store user data in secure storage
+      // Store user data in secure storage (Firebase info as fallback)
       await _storeUserData(firebaseUser);
 
-      // Send user data to backend API
-      await _syncUserWithBackend(firebaseUser, googleAuth.idToken);
+      // Send user data to backend API and get JWT
+      final syncResult = await _syncUserWithBackend(firebaseUser, googleAuth.idToken);
+      
+      if (syncResult != null && syncResult['access_token'] != null) {
+        // Fetch fresh profile from backend using the new JWT
+        final backendProfile = await fetchBackendProfile();
+        
+        return AuthState(
+          user: firebaseUser,
+          backendUser: backendProfile,
+          isLoading: false,
+          isSigningIn: false,
+        );
+      }
 
-      // Update last login
-      await _updateLastLogin(firebaseUser.uid);
-
-      // Return success state with user info
+      // Fallback if sync failed but Firebase succeeded
       return AuthState(
         user: firebaseUser,
         isLoading: false,
@@ -130,8 +139,12 @@ class BackendAuthService {
   }
   */
 
-  /// Validate current session with Firebase
+  /// Validate current session with Backend
   Future<bool> validateSession() async {
+    final token = await getAccessToken();
+    if (token == null || token.isEmpty) return false;
+    
+    // Also check Firebase as a secondary check
     final user = _firebaseAuth.currentUser;
     return user != null;
   }
@@ -169,19 +182,18 @@ class BackendAuthService {
 
   /// Store user data securely
   Future<void> _storeUserData(User user) async {
+    // We already have Firebase user, this is just for offline/fallback
     final userData = {
       'uid': user.uid,
       'email': user.email,
       'displayName': user.displayName,
       'photoURL': user.photoURL,
-      'phoneNumber': user.phoneNumber,
-      'emailVerified': user.emailVerified,
     };
     await _storage.write(key: _userDataKey, value: jsonEncode(userData));
   }
 
   /// Sync user data with backend API
-  Future<void> _syncUserWithBackend(User user, String? idToken) async {
+  Future<Map<String, dynamic>?> _syncUserWithBackend(User user, String? idToken) async {
     try {
       log('Syncing user data with backend...');
       
@@ -194,10 +206,6 @@ class BackendAuthService {
         'email_verified': user.emailVerified,
         'provider': 'google',
         'id_token': idToken,
-        'metadata': {
-          'creation_time': user.metadata.creationTime?.toIso8601String(),
-          'last_sign_in_time': user.metadata.lastSignInTime?.toIso8601String(),
-        }
       };
 
       final response = await http.post(
@@ -212,27 +220,119 @@ class BackendAuthService {
         log('User data synced successfully');
         final responseData = jsonDecode(response.body);
         
-        // Store backend user ID if provided
-        if (responseData['data'] != null && responseData['data']['user_id'] != null) {
-          await _storage.write(
-            key: 'backend_user_id',
-            value: responseData['data']['user_id'].toString(),
-          );
-        }
-        
-        // Store access token if provided
-        if (responseData['data'] != null && responseData['data']['access_token'] != null) {
-          await _storage.write(
-            key: _accessTokenKey,
-            value: responseData['data']['access_token'],
-          );
+        final data = responseData['data'];
+        if (data != null) {
+          // Store backend user ID
+          if (data['user_id'] != null) {
+            await _storage.write(key: 'backend_user_id', value: data['user_id'].toString());
+          }
+          
+          // Store access token
+          if (data['access_token'] != null) {
+            await _storage.write(key: _accessTokenKey, value: data['access_token']);
+            return data;
+          }
         }
       } else {
         log('Failed to sync user data: ${response.statusCode} - ${response.body}');
       }
+      return null;
     } catch (e, s) {
       log('Error syncing user with backend', error: e, stackTrace: s);
-      // Don't throw error - allow login to continue even if backend sync fails
+      return null;
+    }
+  }
+
+  /// Fetch user profile from backend
+  Future<Map<String, dynamic>?> fetchBackendProfile() async {
+    try {
+      final token = await getAccessToken();
+      if (token == null) return null;
+
+      log('Fetching profile from backend...');
+      final response = await http.get(
+        Uri.parse('$baseUrl/auth/me'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          return data['data']['user'];
+        }
+      } else if (response.statusCode == 401) {
+        log('Session expired (401). Clearing tokens.');
+        await signOut();
+      }
+      return null;
+    } catch (e) {
+      log('Error fetching backend profile: $e');
+      return null;
+    }
+  }
+  /// Send OTP to phone number
+  Future<Map<String, dynamic>> sendOtp(String phoneNumber) async {
+    try {
+      final token = await getAccessToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Authentication required'};
+      }
+
+      log('Sending OTP to $phoneNumber...');
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/send-otp'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'phone_number': phoneNumber}),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true, 'message': data['message'] ?? 'OTP sent successfully'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Failed to send OTP'};
+      }
+    } catch (e) {
+      log('Error sending OTP: $e');
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  /// Verify OTP
+  Future<Map<String, dynamic>> verifyOtp(String phoneNumber, String otp) async {
+    try {
+      final token = await getAccessToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Authentication required'};
+      }
+
+      log('Verifying OTP for $phoneNumber...');
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/verify-otp'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'phone_number': phoneNumber,
+          'otp': otp,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Phone verified successfully'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Invalid OTP'};
+      }
+    } catch (e) {
+      log('Error verifying OTP: $e');
+      return {'success': false, 'message': 'Connection error: $e'};
     }
   }
 

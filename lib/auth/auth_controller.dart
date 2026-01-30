@@ -18,21 +18,35 @@ class AuthController with ChangeNotifier {
 
   Future<void> _initializeAuth() async {
     try {
-      // Check if we have a valid session with the backend
-      final user = await _authService.getCurrentUser();
+      // Check if we have a valid session (JWT exists)
+      final isValid = await _authService.isLoggedIn();
 
-      _state = AuthState(
-        user: user,
-        isLoading: false,
-        isSigningIn: false
-      );
+      if (isValid) {
+        final firebaseUser = await _authService.getCurrentUser();
+        final backendUser = await _authService.getCurrentUserProfile();
+
+        _state = AuthState(
+          user: firebaseUser,
+          backendUser: backendUser,
+          isLoading: false,
+          isSigningIn: false,
+        );
+      } else {
+        _state = AuthState(
+          user: null,
+          backendUser: null,
+          isLoading: false,
+          isSigningIn: false,
+        );
+      }
       notifyListeners();
     } catch (e) {
       log('Auth initialization failed: $e');
       _state = AuthState(
         user: null,
+        backendUser: null,
         isLoading: false,
-        isSigningIn: false
+        isSigningIn: false,
       );
       notifyListeners();
     }
@@ -78,8 +92,26 @@ class AuthController with ChangeNotifier {
 
   Future<void> signOut() async {
     await _authService.signOut();
-    _state = AuthState(user: null, isLoading: false, isSigningIn: false);
+    _state = AuthState(user: null, backendUser: null, isLoading: false, isSigningIn: false);
     notifyListeners();
+  }
+
+  Future<void> refreshProfile() async {
+    if (_state.user != null) {
+      final backendUser = await _authService.getCurrentUserProfile();
+      if (backendUser != null) {
+        _state = _state.copyWith(backendUser: backendUser);
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> sendOtp(String phoneNumber) async {
+    return await _authService.sendOtp(phoneNumber);
+  }
+
+  Future<Map<String, dynamic>> verifyOtp(String phoneNumber, String otp) async {
+    return await _authService.verifyOtp(phoneNumber, otp);
   }
 }
 

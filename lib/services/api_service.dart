@@ -341,6 +341,58 @@ class ApiService {
     }
   }
 
+  /// Fetch products with pagination
+  /// 
+  /// Parameters:
+  /// - [page]: Page number (default: 1)
+  /// - [limit]: Number of products per page (default: 10)
+  /// 
+  /// Returns: Map with pagination metadata and products list
+  static Future<Map<String, dynamic>> fetchProducts({
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/products?page=$page&limit=$limit'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      log('Fetch products response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'data': data['data']['products'] ?? [],
+          'pagination': data['pagination'] ?? {},
+          'message': 'Products loaded successfully',
+        };
+      } else {
+        try {
+          final errorData = json.decode(response.body);
+          return {
+            'success': false,
+            'message': errorData['message'] ?? 'Failed to load products',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Failed to load products. Status: ${response.statusCode}',
+          };
+        }
+      }
+    } catch (e) {
+      log('Fetch products error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
   /// Delete product
   static Future<Map<String, dynamic>> deleteProduct(int productId) async {
     try {

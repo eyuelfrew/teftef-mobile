@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:teftef/services/api_service.dart';
+import 'package:teftef/utils/image_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -26,8 +27,8 @@ class _PostProductPageState extends State<PostProductPage> {
 
   // Image picker
   final ImagePicker _picker = ImagePicker();
-  XFile? _mainImage;
-  final List<XFile> _additionalImages = [];
+  File? _mainImage;
+  final List<File> _additionalImages = [];
 
   @override
   void initState() {
@@ -1204,7 +1205,13 @@ class _PostProductPageState extends State<PostProductPage> {
       );
       
       if (image != null) {
-        setState(() => _mainImage = image);
+        // Compress the image before storing
+        try {
+          final compressedFile = await ImageHelper.compressImage(File(image.path));
+          setState(() => _mainImage = compressedFile);
+        } catch (e) {
+          _showErrorSnackbar('Failed to compress image: ${e.toString()}');
+        }
       }
     } catch (e) {
       _showErrorSnackbar('Failed to pick image: ${e.toString()}');
@@ -1226,7 +1233,13 @@ class _PostProductPageState extends State<PostProductPage> {
       );
       
       if (image != null) {
-        setState(() => _additionalImages.add(image));
+        // Compress the image before storing
+        try {
+          final compressedFile = await ImageHelper.compressImage(File(image.path));
+          setState(() => _additionalImages.add(compressedFile));
+        } catch (e) {
+          _showErrorSnackbar('Failed to compress image: ${e.toString()}');
+        }
       }
     } catch (e) {
       _showErrorSnackbar('Failed to pick image: ${e.toString()}');
@@ -1273,7 +1286,7 @@ class _PostProductPageState extends State<PostProductPage> {
         'status': 'active',
       };
 
-      // Prepare image paths
+      // Prepare image paths (already compressed)
       final mainImagePath = _mainImage?.path;
       final additionalImagePaths = _additionalImages.map((img) => img.path).toList();
 

@@ -75,13 +75,13 @@ class ProductListPage extends StatelessWidget {
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.7,
+                  childAspectRatio: 0.65,  // Adjusted for taller cards
                 ),
                 itemCount: filteredProducts.length,
                 itemBuilder: (context, index) {
                   return ProductCard(
                     product: filteredProducts[index],
-                    width: 160, // Adjust width for grid view
+                    width: 160,
                     isGrid: true,
                   );
                 },

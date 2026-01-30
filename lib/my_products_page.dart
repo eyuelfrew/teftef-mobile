@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:teftef/services/api_service.dart';
-import 'dart:io';
 
 class MyProductsPage extends StatefulWidget {
   const MyProductsPage({super.key});

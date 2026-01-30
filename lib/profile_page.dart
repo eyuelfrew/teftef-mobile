@@ -267,6 +267,7 @@ class _ProfilePageState extends State<ProfilePage> {
     String? photoUrl;
     String? displayName;
     String? email;
+    String? phoneNumber;
     bool isVerified = false;
 
     if (user is Map) {
@@ -275,11 +276,13 @@ class _ProfilePageState extends State<ProfilePage> {
           ? "${user['first_name']} ${user['last_name'] ?? ''}" 
           : user['displayName'];
       email = user['email'];
+      phoneNumber = user['phone_number'];
       isVerified = user['is_phone_verified'] ?? false;
     } else {
       photoUrl = user.photoURL;
       displayName = user.displayName;
       email = user.email;
+      phoneNumber = user.phoneNumber;
     }
 
     return Row(
@@ -344,6 +347,15 @@ class _ProfilePageState extends State<ProfilePage> {
                   color: Colors.grey,
                 ),
               ),
+              if (phoneNumber != null && phoneNumber.isNotEmpty)
+                Text(
+                  phoneNumber,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.teal,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               const SizedBox(height: 8),
               if (!isVerified)
                 ElevatedButton(

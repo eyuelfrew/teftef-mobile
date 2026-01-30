@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:teftef/core/config.dart';
 import 'auth_state.dart';
 
 class BackendAuthService {
@@ -15,7 +16,7 @@ class BackendAuthService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // API Configuration
-  static const String baseUrl = "http://localhost:5000/api";
+  static const String baseUrl = AppConfig.baseUrl;
   
   // Keys for storing tokens in secure storage
   static const String _accessTokenKey = 'access_token';
@@ -274,21 +275,23 @@ class BackendAuthService {
     }
   }
   /// Send OTP to phone number
-  Future<Map<String, dynamic>> sendOtp(String phoneNumber) async {
+  Future<Map<String, dynamic>> sendOtp({String? phoneNumber}) async {
     try {
       final token = await getAccessToken();
       if (token == null) {
         return {'success': false, 'message': 'Authentication required'};
       }
 
-      log('Sending OTP to $phoneNumber...');
+      log('Requesting OTP...');
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/send-otp'),
+        Uri.parse('$baseUrl/auth/request-otp'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({'phone_number': phoneNumber}),
+        body: phoneNumber != null && phoneNumber.isNotEmpty 
+            ? jsonEncode({'phone_number': phoneNumber})
+            : jsonEncode({}),
       );
 
       final data = jsonDecode(response.body);
@@ -298,7 +301,7 @@ class BackendAuthService {
         return {'success': false, 'message': data['message'] ?? 'Failed to send OTP'};
       }
     } catch (e) {
-      log('Error sending OTP: $e');
+      log('Error requesting OTP: $e');
       return {'success': false, 'message': 'Connection error: $e'};
     }
   }

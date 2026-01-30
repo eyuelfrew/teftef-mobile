@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'dart:developer' show log;
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:teftef/core/config.dart';
 
 class ApiService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  // Use 10.0.2.2 for Android Emulator, localhost for iOS/Web/Windows
-  // static const String baseUrl = "http://10.0.2.2:5000/api"; 
-  static const String baseUrl = "http://localhost:5000/api"; 
+  
+  static const String baseUrl = AppConfig.baseUrl;
+  static const String serverUrl = AppConfig.serverUrl;
 
   static Future<List<dynamic>> fetchCategoryTree() async {
     try {
@@ -36,6 +37,50 @@ class ApiService {
       }
     } catch (e) {
       return [];
+    }
+  }
+
+  /// Fetch dynamic attributes for a specific category
+  static Future<Map<String, dynamic>> fetchCategoryAttributes(int categoryId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/attributes/category/$categoryId'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'data': data['data']['attributes'] ?? [],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to load category attributes',
+        };
+      }
+    } catch (e) {
+      log('Error fetching category attributes: $e');
+      return {'success': false, 'message': 'Network error'};
+    }
+  }
+
+  /// Fetch product details by ID
+  static Future<Map<String, dynamic>> fetchProductById(dynamic productId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/products/$productId'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'data': data['data']['product'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to fetch product details',
+        };
+      }
+    } catch (e) {
+      log('Error fetching product details: $e');
+      return {'success': false, 'message': 'Network error'};
     }
   }
 
@@ -134,6 +179,76 @@ class ApiService {
         'success': false,
         'message': 'Network error: ${e.toString()}',
       };
+    }
+  }
+
+  /// Update an existing product
+  static Future<Map<String, dynamic>> updateProduct(
+    dynamic productId,
+    Map<String, dynamic> productData, {
+    List<String>? newImages,
+    List<String>? keepImages,
+  }) async {
+    try {
+      final token = await _storage.read(key: 'access_token');
+      if (token == null || token.isEmpty) {
+        return {'success': false, 'message': 'Authentication required'};
+      }
+
+      var request = http.MultipartRequest(
+        'PATCH',
+        Uri.parse('$baseUrl/products/$productId'),
+      );
+
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Standard fields
+      if (productData.containsKey('name')) request.fields['name'] = productData['name'].toString();
+      if (productData.containsKey('description')) request.fields['description'] = productData['description'].toString();
+      if (productData.containsKey('price')) request.fields['price'] = productData['price'].toString();
+      if (productData.containsKey('category')) request.fields['category'] = productData['category'].toString();
+      if (productData.containsKey('status')) request.fields['status'] = productData['status'].toString();
+
+      // metadata (dynamic attributes)
+      if (productData['metadata'] != null) {
+        request.fields['metadata'] = json.encode(productData['metadata']);
+      }
+
+      // keepImages (existing images to retain)
+      if (keepImages != null) {
+        request.fields['keepImages'] = json.encode(keepImages);
+      }
+
+      // new images
+      if (newImages != null && newImages.isNotEmpty) {
+        for (var imagePath in newImages) {
+          request.files.add(
+            await http.MultipartFile.fromPath('images', imagePath),
+          );
+        }
+      }
+
+      log('Sending product update request for $productId...');
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'data': data['data'],
+          'message': data['message'] ?? 'Product updated successfully',
+        };
+      } else {
+        final errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'message': errorData['message'] ?? 'Failed to update product',
+        };
+      }
+    } catch (e) {
+      log('Product update error: $e');
+      return {'success': false, 'message': 'Network error: $e'};
     }
   }
 
@@ -279,6 +394,47 @@ class ApiService {
         'success': false,
         'message': 'Network error: ${e.toString()}',
       };
+    }
+  }
+
+  /// Fetch user-posted products with pagination
+  /// Targets: GET /api/products/my-products
+  static Future<Map<String, dynamic>> fetchMyProducts({int page = 1, int limit = 10}) async {
+    try {
+      final token = await _storage.read(key: 'access_token');
+      if (token == null || token.isEmpty) {
+        return {'success': false, 'message': 'Authentication required'};
+      }
+
+      final url = '$baseUrl/products/my-products?page=$page&limit=$limit';
+      log('Fetching my products: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'data': data['data']['products'] ?? [],
+          'pagination': data['pagination'],
+          'results': data['results'],
+        };
+      } else {
+        final errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'message': errorData['message'] ?? 'Failed to load your products',
+        };
+      }
+    } catch (e) {
+      log('Fetch my products error: $e');
+      return {'success': false, 'message': 'Connection error: $e'};
     }
   }
 

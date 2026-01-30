@@ -16,22 +16,37 @@ class _PhoneVerificationPageState extends State<PhoneVerificationPage> {
   bool _isLoading = false;
 
   Future<void> _sendOtp() async {
-    if (!_formKey.currentState!.validate()) return;
+    final authController = Provider.of<AuthController>(context, listen: false);
+    final existingPhone = authController.state.backendUser?['phone_number'];
+    
+    // Validate only if field is not empty OR if there's no existing phone
+    if (_phoneController.text.isEmpty && (existingPhone == null || existingPhone.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter a phone number")),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
-    final authController = Provider.of<AuthController>(context, listen: false);
-    final result = await authController.sendOtp(_phoneController.text.trim());
+    final phoneNumber = _phoneController.text.trim();
+    final result = await authController.sendOtp(
+      phoneNumber: phoneNumber.isNotEmpty ? phoneNumber : null
+    );
 
     setState(() => _isLoading = false);
 
     if (result['success']) {
       if (!mounted) return;
+      
+      // Use the entered phone or the fallback from backend for the next screen
+      final finalPhone = phoneNumber.isNotEmpty ? phoneNumber : existingPhone;
+      
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => OtpVerificationPage(
-            phoneNumber: _phoneController.text.trim(),
+            phoneNumber: finalPhone ?? '',
           ),
         ),
       );
@@ -45,6 +60,10 @@ class _PhoneVerificationPageState extends State<PhoneVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authController = Provider.of<AuthController>(context);
+    final existingPhone = authController.state.backendUser?['phone_number'];
+    final hasExistingPhone = existingPhone != null && existingPhone.isNotEmpty;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -60,17 +79,19 @@ class _PhoneVerificationPageState extends State<PhoneVerificationPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                "Enter your phone number",
-                style: TextStyle(
+              Text(
+                hasExistingPhone ? "Confirm your number" : "Enter your phone number",
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                "We will send a 6-digit verification code to this number.",
-                style: TextStyle(
+              Text(
+                hasExistingPhone 
+                    ? "Confirm the number below or enter a new one to receive your code."
+                    : "We will send a 6-digit verification code to this number.",
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.grey,
                 ),
@@ -82,23 +103,15 @@ class _PhoneVerificationPageState extends State<PhoneVerificationPage> {
                 style: const TextStyle(fontSize: 18, letterSpacing: 1.5),
                 decoration: InputDecoration(
                   labelText: "Phone Number",
-                  hintText: "+251...",
+                  hintText: hasExistingPhone ? existingPhone : "+251...",
                   prefixIcon: const Icon(Icons.phone),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   filled: true,
                   fillColor: Colors.grey.shade50,
+                  helperText: hasExistingPhone ? "Leave empty to use $existingPhone" : null,
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return "Please enter your phone number";
-                  }
-                  if (!value.startsWith('+')) {
-                    return "Start with + and country code (e.g. +251)";
-                  }
-                  return null;
-                },
               ),
               const Spacer(),
               ElevatedButton(

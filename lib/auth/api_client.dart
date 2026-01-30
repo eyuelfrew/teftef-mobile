@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:teftef/core/config.dart';
 
 class ApiClient {
-  // Replace with your actual backend URL
-  static const String baseUrl = 'http://localhost:5000';
+  // Centralized server URL
+  static const String baseUrl = AppConfig.serverUrl;
 
   // GET request
   Future<http.Response> get(String endpoint) async {

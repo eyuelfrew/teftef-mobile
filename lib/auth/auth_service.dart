@@ -55,8 +55,8 @@ class GoogleAuthService {
   }
 
   /// Send OTP
-  Future<Map<String, dynamic>> sendOtp(String phoneNumber) async {
-    return await _backendAuthService.sendOtp(phoneNumber);
+  Future<Map<String, dynamic>> sendOtp({String? phoneNumber}) async {
+    return await _backendAuthService.sendOtp(phoneNumber: phoneNumber);
   }
 
   /// Verify OTP

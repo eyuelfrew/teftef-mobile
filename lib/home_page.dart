@@ -4,6 +4,7 @@ import 'package:teftef/utils/data_provider.dart';
 import 'package:teftef/services/api_service.dart';
 import 'package:teftef/models/product.dart';
 import 'dart:developer' show log;
+import 'package:teftef/core/config.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -95,14 +96,7 @@ class _HomePageState extends State<HomePage> {
     if (imagePath == null || imagePath.isEmpty) {
       return 'assets/placeholder.png';
     }
-    
-    // If already a full URL, return as-is
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    
-    // Prepend base URL to relative path
-    return 'http://localhost:5000$imagePath';
+    return AppConfig.getImageUrl(imagePath);
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:teftef/services/api_service.dart';
+import 'package:teftef/core/config.dart';
 
 class MyProductsPage extends StatefulWidget {
   const MyProductsPage({super.key});
@@ -9,135 +10,77 @@ class MyProductsPage extends StatefulWidget {
 }
 
 class _MyProductsPageState extends State<MyProductsPage> {
-  bool _isLoading = true;
+  final ScrollController _scrollController = ScrollController();
+  
+  bool _isLoading = false;
+  bool _isMoreLoading = false;
   List<dynamic> _products = [];
   String? _errorMessage;
-  String _selectedFilter = 'all'; // all, active, draft, disabled
+  
+  int _currentPage = 1;
+  int _totalPages = 1;
 
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _loadInitialProducts();
+    _scrollController.addListener(_onScroll);
   }
 
-  Future<void> _loadProducts() async {
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8 &&
+        !_isMoreLoading &&
+        _currentPage < _totalPages) {
+      _loadMoreProducts();
+    }
+  }
+
+  Future<void> _loadInitialProducts() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _currentPage = 1;
     });
 
-    try {
-      final response = await ApiService.getUserProducts(status: _selectedFilter == 'all' ? null : _selectedFilter);
-      
+    final response = await ApiService.fetchMyProducts(page: 1);
+
+    if (mounted) {
       if (response['success'] == true) {
         setState(() {
           _products = response['data'] ?? [];
+          _totalPages = response['pagination']?['totalPages'] ?? 1;
           _isLoading = false;
         });
       } else {
         setState(() {
-          _errorMessage = response['message'] ?? 'Failed to load products';
+          _errorMessage = response['message'];
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error: ${e.toString()}';
-        _isLoading = false;
-      });
     }
   }
 
-  Future<void> _deleteProduct(int productId) async {
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Product'),
-        content: const Text('Are you sure you want to delete this product? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    // Show loading
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => const Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
-    }
-
-    final response = await ApiService.deleteProduct(productId);
+  Future<void> _loadMoreProducts() async {
+    setState(() => _isMoreLoading = true);
     
-    if (mounted) Navigator.pop(context); // Close loading
+    final nextPage = _currentPage + 1;
+    final response = await ApiService.fetchMyProducts(page: nextPage);
 
-    if (response['success'] == true) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Product deleted successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-      _loadProducts(); // Reload list
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? 'Failed to delete product'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _updateProductStatus(int productId, String newStatus) async {
-    // Show loading
     if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => const Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
-    }
-
-    final response = await ApiService.updateProductStatus(productId, newStatus);
-    
-    if (mounted) Navigator.pop(context); // Close loading
-
-    if (response['success'] == true) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Product status updated to $newStatus'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-      _loadProducts(); // Reload list
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? 'Failed to update status'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (response['success'] == true) {
+        setState(() {
+          _products.addAll(response['data'] ?? []);
+          _currentPage = nextPage;
+          _isMoreLoading = false;
+        });
+      } else {
+        setState(() => _isMoreLoading = false);
       }
     }
   }
@@ -145,370 +88,166 @@ class _MyProductsPageState extends State<MyProductsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FB),
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 50, 50, 50),
+        title: const Text("My Products", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "My Products",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadProducts,
-          ),
-        ],
       ),
-      body: Column(
-        children: [
-          // Filter Tabs
-          _buildFilterTabs(),
-          
-          // Content
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                    ? _buildErrorState()
-                    : _products.isEmpty
-                        ? _buildEmptyState()
-                        : _buildProductList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterTabs() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _buildFilterChip('All', 'all'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Active', 'active'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Draft', 'draft'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Disabled', 'disabled'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value) {
-    final isSelected = _selectedFilter == value;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedFilter = value);
-        _loadProducts();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color.fromARGB(255, 50, 50, 50) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : Colors.grey[700],
-          ),
-        ),
-      ),
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? _buildErrorState()
+              : _products.isEmpty
+                  ? _buildEmptyState()
+                  : _buildProductList(),
     );
   }
 
   Widget _buildProductList() {
     return RefreshIndicator(
-      onRefresh: _loadProducts,
+      onRefresh: _loadInitialProducts,
       child: ListView.builder(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16),
-        itemCount: _products.length,
+        itemCount: _products.length + (_isMoreLoading ? 1 : 0),
         itemBuilder: (context, index) {
-          final product = _products[index];
-          return _buildProductCard(product);
+          if (index == _products.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return _buildProductCard(_products[index]);
         },
       ),
     );
   }
 
   Widget _buildProductCard(dynamic product) {
-    final status = product['status']?.toString() ?? 'draft';
-    final price = product['price']?.toString() ?? '0';
-    final name = product['name']?.toString() ?? 'Unnamed Product';
     final images = product['images'] as List<dynamic>?;
-    final imageUrl = images != null && images.isNotEmpty ? images[0] : null;
-    
+    String? imageUrl = images != null && images.isNotEmpty 
+        ? AppConfig.getImageUrl(images[0].toString()) 
+        : null;
+    final status = product['status']?.toString() ?? 'active';
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // Product Info
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            Stack(
               children: [
-                // Product Image
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                SizedBox(
+                  height: 180,
+                  width: double.infinity,
                   child: imageUrl != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(Icons.image_not_supported, color: Colors.grey[400]);
-                            },
-                          ),
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => 
+                              const Icon(Icons.broken_image, size: 50, color: Colors.grey),
                         )
-                      : Icon(Icons.image_outlined, color: Colors.grey[400], size: 32),
+                      : Container(color: Colors.grey[200], child: const Icon(Icons.image, size: 50)),
                 ),
-                const SizedBox(width: 12),
-                
-                // Product Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2C2C2C),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'ETB $price',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.orange[700],
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      _buildStatusBadge(status),
-                    ],
-                  ),
-                ),
-                
-                // More Options
-                PopupMenuButton(
-                  icon: Icon(Icons.more_vert, color: Colors.grey[600]),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  itemBuilder: (context) {
-                    List<PopupMenuEntry> menuItems = [];
-
-                    if (status != 'active') {
-                      menuItems.add(
-                        PopupMenuItem(
-                          child: Row(
-                            children: [
-                              Icon(Icons.check_circle_outline, size: 18, color: Colors.green[600]),
-                              const SizedBox(width: 8),
-                              const Text('Mark as Active'),
-                            ],
-                          ),
-                          onTap: () => Future.delayed(
-                            Duration.zero,
-                            () => _updateProductStatus(product['id'], 'active'),
-                          ),
-                        ),
-                      );
-                    }
-
-                    if (status != 'draft') {
-                      menuItems.add(
-                        PopupMenuItem(
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit_outlined, size: 18, color: Colors.orange[600]),
-                              const SizedBox(width: 8),
-                              const Text('Mark as Draft'),
-                            ],
-                          ),
-                          onTap: () => Future.delayed(
-                            Duration.zero,
-                            () => _updateProductStatus(product['id'], 'draft'),
-                          ),
-                        ),
-                      );
-                    }
-
-                    if (status != 'disabled') {
-                      menuItems.add(
-                        PopupMenuItem(
-                          child: Row(
-                            children: [
-                              Icon(Icons.block_outlined, size: 18, color: Colors.grey[600]),
-                              const SizedBox(width: 8),
-                              const Text('Disable'),
-                            ],
-                          ),
-                          onTap: () => Future.delayed(
-                            Duration.zero,
-                            () => _updateProductStatus(product['id'], 'disabled'),
-                          ),
-                        ),
-                      );
-                    }
-
-                    menuItems.add(const PopupMenuDivider());
-
-                    menuItems.add(
-                      PopupMenuItem(
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, size: 18, color: Colors.red[600]),
-                            const SizedBox(width: 8),
-                            const Text('Delete', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                        onTap: () => Future.delayed(
-                          Duration.zero,
-                          () => _deleteProduct(product['id']),
-                        ),
-                      ),
-                    );
-
-                    return menuItems;
-                  },
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: _buildStatusBadge(status),
                 ),
               ],
             ),
-          ),
-          
-          // Stats Row (if available)
-          if (product['views'] != null || product['favorites'] != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(12),
-                ),
-              ),
-              child: Row(
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (product['views'] != null) ...[
-                    Icon(Icons.visibility_outlined, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${product['views']} views',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    ),
-                    const SizedBox(width: 16),
-                  ],
-                  if (product['favorites'] != null) ...[
-                    Icon(Icons.favorite_border, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${product['favorites']} favorites',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    ),
-                  ],
+                  Text(
+                    product['name'] ?? 'Unnamed Product',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "ETB ${product['price']}",
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1B4D3E),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () async {
+                              final result = await Navigator.pushNamed(
+                                context, 
+                                '/edit_product', 
+                                arguments: product,
+                              );
+                              if (result == true) {
+                                _loadInitialProducts();
+                              }
+                            },
+                            icon: const Icon(Icons.edit_note, color: Colors.blue),
+                          ),
+                          IconButton(
+                            onPressed: () {}, // TODO: Delete
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildStatusBadge(String status) {
-    Color bgColor;
-    Color textColor;
-    IconData icon;
-    
+    Color color;
     switch (status.toLowerCase()) {
       case 'active':
-        bgColor = Colors.green.withOpacity(0.1);
-        textColor = Colors.green.shade700;
-        icon = Icons.check_circle;
+        color = Colors.green;
         break;
       case 'draft':
-        bgColor = Colors.orange.withOpacity(0.1);
-        textColor = Colors.orange.shade700;
-        icon = Icons.edit;
-        break;
-      case 'disabled':
-        bgColor = Colors.grey.withOpacity(0.1);
-        textColor = Colors.grey.shade700;
-        icon = Icons.block;
+        color = Colors.orange;
         break;
       default:
-        bgColor = Colors.blue.withOpacity(0.1);
-        textColor = Colors.blue.shade700;
-        icon = Icons.info;
+        color = Colors.grey;
     }
-    
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(6),
+        color: color.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: textColor),
-          const SizedBox(width: 4),
-          Text(
-            status.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: textColor,
-            ),
-          ),
-        ],
+      child: Text(
+        status.toUpperCase(),
+        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -518,30 +257,11 @@ class _MyProductsPageState extends State<MyProductsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 80,
-            color: Colors.grey[300],
-          ),
+          Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text(
-            'No products found',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-            ),
-          ),
+          const Text("No products yet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            _selectedFilter == 'all'
-                ? 'Start posting products to see them here'
-                : 'No $_selectedFilter products',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-          ),
+          const Text("You haven't posted any products for sale.", style: TextStyle(color: Colors.grey)),
         ],
       ),
     );
@@ -552,43 +272,10 @@ class _MyProductsPageState extends State<MyProductsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 80,
-            color: Colors.red[300],
-          ),
+          const Icon(Icons.error_outline, size: 60, color: Colors.red),
           const SizedBox(height: 16),
-          Text(
-            'Error Loading Products',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              _errorMessage ?? 'Unknown error',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _loadProducts,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromARGB(255, 50, 50, 50),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
+          Text(_errorMessage ?? "Failed to load products"),
+          TextButton(onPressed: _loadInitialProducts, child: const Text("Retry")),
         ],
       ),
     );

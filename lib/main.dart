@@ -10,6 +10,7 @@ import 'chat_page.dart';
 import 'search_page.dart';
 import 'production_bottom_navigation.dart';
 import 'profile_page.dart';
+import 'edit_product_page.dart';
 import 'auth/auth_controller.dart';
 
 void main() async {
@@ -54,6 +55,9 @@ class MyApp extends StatelessWidget {
             product: ModalRoute.of(context)?.settings.arguments as Product,
           ),
           '/profile': (context) => ProfilePage(),
+          '/edit_product': (context) => EditProductPage(
+            product: ModalRoute.of(context)?.settings.arguments,
+          ),
         },
       ),
     );

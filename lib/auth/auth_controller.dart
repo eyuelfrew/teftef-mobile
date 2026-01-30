@@ -106,8 +106,8 @@ class AuthController with ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> sendOtp(String phoneNumber) async {
-    return await _authService.sendOtp(phoneNumber);
+  Future<Map<String, dynamic>> sendOtp({String? phoneNumber}) async {
+    return await _authService.sendOtp(phoneNumber: phoneNumber);
   }
 
   Future<Map<String, dynamic>> verifyOtp(String phoneNumber, String otp) async {

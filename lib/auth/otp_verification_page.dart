@@ -18,7 +18,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
     final otp = _otpController.text.trim();
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter a 6-digit code")),
+        const SnackBar(content: Text("Please enter a  6-digit code")),
       );
       return;
     }
@@ -53,7 +53,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   Future<void> _resendOtp() async {
     setState(() => _isLoading = true);
     final authController = Provider.of<AuthController>(context, listen: false);
-    await authController.sendOtp(widget.phoneNumber);
+    await authController.sendOtp(phoneNumber: widget.phoneNumber);
     setState(() => _isLoading = false);
     
     if (!mounted) return;

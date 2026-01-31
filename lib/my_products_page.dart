@@ -56,7 +56,7 @@ class _MyProductsPageState extends State<MyProductsPage> {
       if (response['success'] == true) {
         setState(() {
           _products = response['data'] ?? [];
-          _totalPages = response['pagination']?['totalPages'] ?? 1;
+          _totalPages = int.tryParse(response['pagination']?['totalPages']?.toString() ?? '1') ?? 1;
           _isLoading = false;
         });
       } else {
@@ -139,91 +139,151 @@ class _MyProductsPageState extends State<MyProductsPage> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Stack(
-              children: [
-                SizedBox(
-                  height: 180,
-                  width: double.infinity,
-                  child: imageUrl != null
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => 
-                              const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                        )
-                      : Container(color: Colors.grey[200], child: const Icon(Icons.image, size: 50)),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: _buildStatusBadge(status),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product['name'] ?? 'Unnamed Product',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "ETB ${product['price']}",
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1B4D3E),
-                        ),
-                      ),
-                      Row(
+            // Left: Product Image
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+              child: SizedBox(
+                width: 130,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: imageUrl != null
+                          ? Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => 
+                                  Container(
+                                    color: Colors.grey[100],
+                                    child: const Icon(Icons.broken_image, color: Colors.grey)
+                                  ),
+                            )
+                          : Container(
+                              color: Colors.grey[100],
+                              child: const Icon(Icons.image, color: Colors.grey)
+                            ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Row(
                         children: [
-                          IconButton(
-                            onPressed: () async {
-                              final result = await Navigator.pushNamed(
-                                context, 
-                                '/edit_product', 
-                                arguments: product,
-                              );
-                              if (result == true) {
-                                _loadInitialProducts();
-                              }
-                            },
-                            icon: const Icon(Icons.edit_note, color: Colors.blue),
-                          ),
-                          IconButton(
-                            onPressed: () => _showDeleteConfirmation(product),
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          ),
+                          _buildStatusBadge(status),
+                          if (product['isBoosted'] == true) ...[
+                            const SizedBox(width: 8),
+                            _buildBoostedBadge(),
+                          ],
                         ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Right: Product Details
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product['name'] ?? 'Unnamed Product',
+                      style: const TextStyle(
+                        fontSize: 17, 
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "ETB ${product['price']}",
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1B4D3E),
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _buildActionButton(
+                          icon: Icons.rocket_launch_rounded,
+                          color: const Color(0xFFFF9800),
+                          onPressed: () async {
+                            final result = await Navigator.pushNamed(
+                              context, 
+                              '/boost_product', 
+                              arguments: product,
+                            );
+                            if (result == true) {
+                              _loadInitialProducts();
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        _buildActionButton(
+                          icon: Icons.edit_rounded,
+                          color: Colors.blue[700]!,
+                          onPressed: () async {
+                            final result = await Navigator.pushNamed(
+                              context, 
+                              '/edit_product', 
+                              arguments: product,
+                            );
+                            if (result == true) {
+                              _loadInitialProducts();
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        _buildActionButton(
+                          icon: Icons.delete_outline_rounded,
+                          color: Colors.red[600]!,
+                          onPressed: () => _showDeleteConfirmation(product),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        padding: const EdgeInsets.all(8),
+        constraints: const BoxConstraints(),
+        onPressed: onPressed,
+        icon: Icon(icon, color: color, size: 22),
       ),
     );
   }
@@ -288,24 +348,72 @@ class _MyProductsPageState extends State<MyProductsPage> {
     Color color;
     switch (status.toLowerCase()) {
       case 'active':
-        color = Colors.green;
+        color = const Color(0xFF4CAF50);
         break;
       case 'draft':
-        color = Colors.orange;
+        color = const Color(0xFFFF9800);
+        break;
+      case 'pending':
+        color = const Color(0xFF2196F3);
         break;
       default:
-        color = Colors.grey;
+        color = Colors.grey[600]!;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(8),
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Text(
         status.toUpperCase(),
-        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white, 
+          fontSize: 9, 
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBoostedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF9800), // Vibrant orange
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF9800).withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.bolt_rounded, color: Colors.white, size: 10),
+          const SizedBox(width: 4),
+          const Text(
+            "BOOSTED",
+            style: TextStyle(
+              color: Colors.white, 
+              fontSize: 9, 
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }

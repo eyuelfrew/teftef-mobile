@@ -612,5 +612,91 @@ class ApiService {
       };
     }
   }
+
+  /// Fetch available boost packages
+  static Future<Map<String, dynamic>> fetchBoostPackages() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/products/boost-packages'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'packages': data['data']['packages'] ?? [],
+        };
+      } else {
+        return {'success': false, 'message': 'Failed to load packages'};
+      }
+    } catch (e) {
+      log('Fetch boost packages error: $e');
+      return {'success': false, 'message': 'Network error'};
+    }
+  }
+
+  /// Fetch available payment agents
+  static Future<Map<String, dynamic>> fetchPaymentAgents() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/products/payment-agents'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'agents': data['data']['agents'] ?? [],
+        };
+      } else {
+        return {'success': false, 'message': 'Failed to load payment agents'};
+      }
+    } catch (e) {
+      log('Fetch payment agents error: $e');
+      return {'success': false, 'message': 'Network error'};
+    }
+  }
+
+  /// Activate boost for a product with manual transaction verification via dynamic agents
+  static Future<Map<String, dynamic>> activateBoost(dynamic productId, int packageId, int agentId, String transactionId) async {
+    try {
+      final token = await _storage.read(key: 'access_token');
+      if (token == null || token.isEmpty) {
+        return {'success': false, 'message': 'Authentication required'};
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/products/$productId/boost'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'packageId': packageId,
+          'agentId': agentId,
+          'transactionId': transactionId,
+        }),
+      );
+
+      final data = json.decode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Boost request submitted successfully',
+          'data': data['data'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to submit boost request',
+        };
+      }
+    } catch (e) {
+      log('Activate boost error: $e');
+      return {'success': false, 'message': 'Network error'};
+    }
+  }
 }
 

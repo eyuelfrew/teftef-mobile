@@ -12,6 +12,7 @@ import 'production_bottom_navigation.dart';
 import 'profile_page.dart';
 import 'edit_product_page.dart';
 import 'auth/auth_controller.dart';
+import 'boost_product_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,9 @@ class MyApp extends StatelessWidget {
           ),
           '/profile': (context) => ProfilePage(),
           '/edit_product': (context) => EditProductPage(
+            product: ModalRoute.of(context)?.settings.arguments,
+          ),
+          '/boost_product': (context) => BoostProductPage(
             product: ModalRoute.of(context)?.settings.arguments,
           ),
         },

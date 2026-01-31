@@ -6,6 +6,8 @@ class Product {
   final String image;
   final bool isBoosted;
   final DateTime? boostExpiresAt;
+  final String? boostStatus;
+  final String? rejectionReason;
 
   Product({
     required this.name,
@@ -15,5 +17,7 @@ class Product {
     required this.image,
     this.isBoosted = false,
     this.boostExpiresAt,
+    this.boostStatus,
+    this.rejectionReason,
   });
 }

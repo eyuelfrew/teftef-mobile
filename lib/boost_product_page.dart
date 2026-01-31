@@ -12,12 +12,12 @@ class BoostProductPage extends StatefulWidget {
 
 class _BoostProductPageState extends State<BoostProductPage> {
   int? _selectedPackageId;
-  int? _selectedAgentId;
+  dynamic _primaryAgent;
+  bool _isAlreadyPending = false;
   int _currentStep = 0; // 0: Selection, 1: Payment
   bool _isLoading = true;
   bool _isActivating = false;
   List<dynamic> _packages = [];
-  List<dynamic> _agents = [];
   String? _errorMessage;
 
   final TextEditingController _transactionController = TextEditingController();
@@ -26,7 +26,17 @@ class _BoostProductPageState extends State<BoostProductPage> {
   @override
   void initState() {
     super.initState();
+    _checkPendingStatus();
     _fetchData();
+  }
+
+  void _checkPendingStatus() {
+    final boostRequest = widget.product['boostRequest'];
+    if (boostRequest != null && boostRequest['status'] == 'pending') {
+      setState(() {
+        _isAlreadyPending = true;
+      });
+    }
   }
 
   Future<void> _fetchData() async {
@@ -40,9 +50,10 @@ class _BoostProductPageState extends State<BoostProductPage> {
     
     if (mounted) {
       if (packageRes['success'] && agentRes['success']) {
+        final agents = agentRes['agents'] as List<dynamic>;
         setState(() {
           _packages = packageRes['packages'];
-          _agents = agentRes['agents'];
+          _primaryAgent = agents.isNotEmpty ? agents.first : null;
           _isLoading = false;
         });
       } else {
@@ -55,14 +66,14 @@ class _BoostProductPageState extends State<BoostProductPage> {
   }
 
   Future<void> _handleActivateBoost() async {
-    if (_selectedPackageId == null || !_formKey.currentState!.validate()) return;
+    if (_selectedPackageId == null || _primaryAgent == null || !_formKey.currentState!.validate()) return;
 
     setState(() => _isActivating = true);
 
     final res = await ApiService.activateBoost(
       widget.product['id'], 
       _selectedPackageId!, 
-      _selectedAgentId!,
+      int.tryParse(_primaryAgent['id'].toString()) ?? 0,
       _transactionController.text.trim(),
     );
 
@@ -71,14 +82,36 @@ class _BoostProductPageState extends State<BoostProductPage> {
       if (res['success']) {
         _showSuccessDialog();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res['message'] ?? 'Failed to submit boost request'),
-            backgroundColor: Colors.red[700],
-          ),
-        );
+        // Specifically check for "Already have a pending request" (usually 400 or identified by message)
+        if (res['message']?.toString().toLowerCase().contains('pending') == true) {
+          _showErrorDialog("Request Already Pending", res['message'] ?? "You already have a boost request waiting for verification.");
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['message'] ?? 'Failed to submit boost request'),
+              backgroundColor: Colors.red[700],
+            ),
+          );
+        }
       }
     }
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSuccessDialog() {
@@ -172,6 +205,29 @@ class _BoostProductPageState extends State<BoostProductPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildProductPreview(imageUrl),
+                    if (_isAlreadyPending) ...[
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.amber[50],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.amber[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: Colors.amber[900]),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "Verification in progress. Please wait for approval before submitting a new request.",
+                                style: TextStyle(color: Colors.amber[900], fontWeight: FontWeight.w600, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 32),
                     if (_currentStep == 0) ...[
                       const Text(
@@ -185,18 +241,6 @@ class _BoostProductPageState extends State<BoostProductPage> {
                       ),
                       const SizedBox(height: 24),
                       ..._packages.map((package) => _buildPackageCard(package)).toList(),
-                      const SizedBox(height: 32),
-                      const Text(
-                        "Select Payment Destination",
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "Choose where you'll send the payment.",
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                      const SizedBox(height: 16),
-                      ..._agents.map((agent) => _buildAgentCard(agent)).toList(),
                     ] else ...[
                       _buildPaymentStep(),
                     ],
@@ -365,72 +409,36 @@ class _BoostProductPageState extends State<BoostProductPage> {
     );
   }
 
-  Widget _buildAgentCard(dynamic agent) {
-    final int id = int.tryParse(agent['id'].toString()) ?? 0;
-    bool isSelected = _selectedAgentId == id;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedAgentId = id),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? Colors.black : Colors.black.withOpacity(0.05),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
+  Widget _buildPaymentStep() {
+    if (_primaryAgent == null) {
+      return Center(
+        child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: (isSelected ? Colors.black : Colors.grey[100])?.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.account_balance_rounded, 
-                color: isSelected ? Colors.black : Colors.grey[600], 
-                size: 20
-              ),
+            Icon(Icons.warning_amber_rounded, size: 64, color: Colors.orange[300]),
+            const SizedBox(height: 16),
+            const Text(
+              "Payment System Unavailable",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    agent['name'] ?? 'Agent',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  Text(
-                    agent['bankName'] ?? 'Bank',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 8),
+            const Text(
+              "No official bank account is currently configured. Please try again later.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
             ),
-            if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: Colors.black, size: 24),
+            const SizedBox(height: 24),
+            TextButton(onPressed: _fetchData, child: const Text("Retry")),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _buildPaymentStep() {
     final selectedPackage = _packages.firstWhere(
       (p) => int.tryParse(p['id'].toString()) == _selectedPackageId,
       orElse: () => null,
     );
-    final selectedAgent = _agents.firstWhere(
-      (a) => int.tryParse(a['id'].toString()) == _selectedAgentId,
-      orElse: () => null,
-    );
     
-    if (selectedPackage == null || selectedAgent == null) return const SizedBox();
+    if (selectedPackage == null) return const SizedBox();
 
     return Form(
       key: _formKey,
@@ -447,10 +455,15 @@ class _BoostProductPageState extends State<BoostProductPage> {
               ),
               const SizedBox(width: 12),
               const Text(
-                "Payment Details",
+                "Payment Instructions",
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
               ),
             ],
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            "Please transfer the package price to the following official bank account.",
+            style: TextStyle(color: Colors.grey, fontSize: 15),
           ),
           const SizedBox(height: 24),
           Container(
@@ -464,13 +477,13 @@ class _BoostProductPageState extends State<BoostProductPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Transfer via ${selectedAgent['bankName']}",
+                  "Transfer via ${_primaryAgent['bankName']}",
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 16),
-                _buildInstructionRow("Account Number", selectedAgent['accountNumber']?.toString() ?? 'N/A'),
+                _buildInstructionRow("Account Number", _primaryAgent['accountNumber']?.toString() ?? 'N/A'),
                 const SizedBox(height: 12),
-                _buildInstructionRow("Account Name", selectedAgent['name']?.toString() ?? 'N/A'),
+                _buildInstructionRow("Account Name", _primaryAgent['name']?.toString() ?? 'N/A'),
                 const SizedBox(height: 12),
                 _buildInstructionRow("Amount", "ETB ${double.tryParse(selectedPackage['price'].toString())}"),
               ],
@@ -542,7 +555,7 @@ class _BoostProductPageState extends State<BoostProductPage> {
         ],
       ),
       child: ElevatedButton(
-        onPressed: (_selectedPackageId == null || _selectedAgentId == null || _isActivating) 
+        onPressed: (_selectedPackageId == null || _isActivating || _isAlreadyPending) 
             ? null 
             : (_currentStep == 0 
                 ? () => setState(() => _currentStep = 1) 

@@ -115,26 +115,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         label: "My Featured Ads",
                       ),
                       _buildThemeToggle(),
-                      _buildMenuItem(
-                        icon: Icons.subscriptions_outlined,
-                        iconColor: Colors.teal,
-                        label: "Subscription",
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.history_edu,
-                        iconColor: Colors.teal,
-                        label: "Transaction History",
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.rate_review_outlined,
-                        iconColor: Colors.teal,
-                        label: "My Reviews",
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.assignment_outlined,
-                        iconColor: Colors.teal,
-                        label: "My Job Applications",
-                      ),
+
                       _buildMenuItem(
                         icon: Icons.notifications_none,
                         iconColor: Colors.teal,

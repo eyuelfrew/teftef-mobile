@@ -240,7 +240,7 @@ class _BoostProductPageState extends State<BoostProductPage> {
                         style: TextStyle(color: Colors.grey, fontSize: 15),
                       ),
                       const SizedBox(height: 24),
-                      ..._packages.map((package) => _buildPackageCard(package)).toList(),
+                      ..._packages.map((package) => _buildPackageCard(package)),
                     ] else ...[
                       _buildPaymentStep(),
                     ],
